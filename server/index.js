@@ -1,15 +1,18 @@
-//intallations
+// installations
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const FormData = require('form-data');
+const axios = require('axios');
 
 // Load environment variables from .env, if present
 dotenv.config();
 
 const { initDB, pool } = require('./db');
+
 initDB().catch((err) => {
   console.error('Database init failed:', err);
 });
@@ -17,8 +20,8 @@ initDB().catch((err) => {
 const app = express();
 
 // Middleware
-app.use(cors()); // allows requests from other origins/ports
-app.use(express.json()); // translates to js object for understanding for Nodejs
+app.use(cors());
+app.use(express.json());
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -71,6 +74,7 @@ app.get('/health', (req, res) => {
 // POST /api/upload endpoint
 app.post('/api/upload', async (req, res) => {
   try {
+    // Run multer to handle the file upload
     await new Promise((resolve, reject) => {
       upload(req, res, (err) => {
         if (!err) return resolve();
@@ -82,6 +86,7 @@ app.post('/api/upload', async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    // Insert basic upload metadata into uploads table
     const insertResult = await pool.query(
       `
         INSERT INTO uploads (filename, original_name, file_size)
@@ -91,12 +96,35 @@ app.post('/api/upload', async (req, res) => {
       [req.file.filename, req.file.originalname, req.file.size]
     );
 
+    const uploadId = insertResult.rows[0]?.id;
+    if (!uploadId) {
+      throw new Error('Failed to obtain upload id from database.');
+    }
+
+    // Send the saved file to the Python /analyze service
+    const form = new FormData();
+    form.append('file', fs.createReadStream(req.file.path), req.file.filename);
+
+    const pythonResponse = await axios.post('http://localhost:7001/analyze', form, {
+      headers: form.getHeaders(),
+      timeout: 30000, 
+    });
+
+    const analysisResult = pythonResponse.data;
+
+    // Persist analysis result in the analyses table
+    await pool.query(
+      `
+        INSERT INTO analyses (upload_id, insights_json)
+        VALUES ($1, $2)
+      `,
+      [uploadId, JSON.stringify(analysisResult)]
+    );
+
     return res.status(201).json({
-      message: 'File uploaded successfully',
-      id: insertResult.rows[0]?.id,
-      filename: req.file.filename,
-      path: req.file.path,
-      size: req.file.size,
+      message: 'File uploaded and analyzed successfully',
+      upload_id: uploadId,
+      analysisResult,
     });
   } catch (err) {
     if (err instanceof multer.MulterError) {
@@ -105,7 +133,14 @@ app.post('/api/upload', async (req, res) => {
         details: err.message,
       });
     }
-//for known and unknow errors - err is there and what is its statuscode
+
+    if (err && err.response && err.response.data) {
+      // Error returned from Python analysis service
+      return res.status(502).json({
+        error: 'Analysis service error',
+        details: err.response.data,
+      });
+    }
 
     if (err && err.statusCode) {
       return res.status(err.statusCode).json({
@@ -113,7 +148,7 @@ app.post('/api/upload', async (req, res) => {
         details: err.message,
       });
     }
-//for unknow error - assign statuscode 500
+
     console.error('Upload handler failed:', err);
     return res.status(500).json({
       error: 'Upload failed',
@@ -137,4 +172,3 @@ const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
 });
-
