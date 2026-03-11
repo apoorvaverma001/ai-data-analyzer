@@ -9,8 +9,10 @@ const path = require('path');
 // Load environment variables from .env, if present
 dotenv.config();
 
-const { initDB } = require('./db');
-initDB();
+const { initDB, pool } = require('./db');
+initDB().catch((err) => {
+  console.error('Database init failed:', err);
+});
 
 const app = express();
 
@@ -67,38 +69,57 @@ app.get('/health', (req, res) => {
 });
 
 // POST /api/upload endpoint
-app.post('/api/upload', (req, res, next) => {
-  upload(req, res, function (err) {
+app.post('/api/upload', async (req, res) => {
+  try {
+    await new Promise((resolve, reject) => {
+      upload(req, res, (err) => {
+        if (!err) return resolve();
+        return reject(err);
+      });
+    });
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const insertResult = await pool.query(
+      `
+        INSERT INTO uploads (filename, original_name, file_size)
+        VALUES ($1, $2, $3)
+        RETURNING id
+      `,
+      [req.file.filename, req.file.originalname, req.file.size]
+    );
+
+    return res.status(201).json({
+      message: 'File uploaded successfully',
+      id: insertResult.rows[0]?.id,
+      filename: req.file.filename,
+      path: req.file.path,
+      size: req.file.size,
+    });
+  } catch (err) {
     if (err instanceof multer.MulterError) {
-      // Multer-specific errors (e.g., file too large)
       return res.status(400).json({
         error: 'File upload error',
         details: err.message,
       });
     }
+//for known and unknow errors - err is there and what is its statuscode
 
-    if (err) {
-      // Custom or unexpected errors from fileFilter or others
-      const status = err.statusCode || 500;
-      return res.status(status).json({
+    if (err && err.statusCode) {
+      return res.status(err.statusCode).json({
         error: 'Upload failed',
         details: err.message,
       });
     }
-
-    if (!req.file) {
-      return res.status(400).json({
-        error: 'No file uploaded',
-      });
-    }
-
-    return res.status(201).json({
-      message: 'File uploaded successfully',
-      filename: req.file.filename,
-      path: req.file.path,
-      size: req.file.size,
+//for unknow error - assign statuscode 500
+    console.error('Upload handler failed:', err);
+    return res.status(500).json({
+      error: 'Upload failed',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined,
     });
-  });
+  }
 });
 
 // Global error handler
@@ -111,7 +132,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
