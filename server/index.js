@@ -1,15 +1,17 @@
 // installations
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const multer = require('multer');
 const fs = require('fs');
-const path = require('path');
 const FormData = require('form-data');
 const axios = require('axios');
 
-// Load environment variables from .env, if present
-dotenv.config();
+// Load environment variables from server/.env (regardless of where node is started)
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+const { generateInsights } = require('./openai');
 
 const { initDB, pool } = require('./db');
 
@@ -111,20 +113,26 @@ app.post('/api/upload', async (req, res) => {
     });
 
     const analysisResult = pythonResponse.data;
+    
+    const insights = await generateInsights(analysisResult);
+    
 
     // Persist analysis result in the analyses table
     await pool.query(
       `
-        INSERT INTO analyses (upload_id, insights_json)
-        VALUES ($1, $2)
+        INSERT INTO analyses (upload_id, insights_json, insights_text)
+        VALUES ($1, $2, $3)
       `,
-      [uploadId, JSON.stringify(analysisResult)]
+      [uploadId, JSON.stringify(analysisResult), insights]
     );
+
+    
 
     return res.status(201).json({
       message: 'File uploaded and analyzed successfully',
       upload_id: uploadId,
       analysisResult,
+      insights,
     });
   } catch (err) {
     if (err instanceof multer.MulterError) {
@@ -155,6 +163,7 @@ app.post('/api/upload', async (req, res) => {
       details: process.env.NODE_ENV === 'development' ? err.message : undefined,
     });
   }
+  
 });
 
 // Global error handler
