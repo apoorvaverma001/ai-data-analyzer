@@ -1,17 +1,22 @@
 const OpenAI = require('openai');
 
 async function generateInsights(analysisResult) {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY; 
     if (!apiKey) {
         throw new Error(
-            'OPENAI_API_KEY is missing. Set it in server/.env (or your environment) before starting the server.'
+            'GROQAI_API_KEY is missing. Set it in server/.env (or your environment) before starting the server.'
         );
     }
 
-    const openai = new OpenAI({ apiKey });
+    const client = new OpenAI({
+        apiKey,
+        baseURL: "https://api.groq.com/openai/v1",
+    });
+
+    
     const prompt = JSON.stringify(analysisResult);
-    const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+    const response = await client.chat.completions.create({
+        model: "openai/gpt-oss-20b",
         messages: [
             {
                 role:'system',
