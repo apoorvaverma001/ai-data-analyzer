@@ -1,6 +1,5 @@
 import os
 from typing import Any, Dict, Optional
-
 import pandas as pd
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -14,11 +13,24 @@ def _json_error(message: str, status_code: int = 400, *, details: Optional[str] 
 
 
 def _safe_numeric_summary(df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Return numeric describe() with NaN values converted to None so the JSON
+    we send back is always valid and can be parsed safely in Node/React.
+    """
     numeric_df = df.select_dtypes(include="number")
     if numeric_df.shape[1] == 0:
         return {}
-    # Use describe() on numeric columns only and convert to plain JSON-serializable dict
-    return numeric_df.describe().to_dict()
+
+    summary = numeric_df.describe().to_dict()
+    cleaned: Dict[str, Dict[str, Any]] = {}
+    for col, stats in summary.items():
+        cleaned[col] = {}
+        for key, value in stats.items():
+            if isinstance(value, float) and pd.isna(value):
+                cleaned[col][key] = None
+            else:
+                cleaned[col][key] = value
+    return cleaned
 
 
 def _top_categories_first_non_numeric(df: pd.DataFrame, top_n: int = 5) -> Dict[str, int]:
@@ -70,7 +82,11 @@ def create_app() -> Flask:
                 "top_categories": _top_categories_first_non_numeric(df, top_n=5),
                 "missing_values": missing_values,
             }
+            print(type(response))
+            print(response)
+            
             return jsonify(response), 200
+
 
         except Exception as e:  # noqa: BLE001 - last-resort handler
             app.logger.exception("Unhandled error in /analyze")

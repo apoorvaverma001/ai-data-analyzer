@@ -112,7 +112,19 @@ app.post('/api/upload', async (req, res) => {
       timeout: 30000, 
     });
 
-    const analysisResult = pythonResponse.data;
+    let analysisResult = pythonResponse.data;
+
+    // In some edge cases (e.g. double-encoded JSON) axios may give us a string.
+    // Normalize so the rest of the app always sees an object.
+    if (typeof analysisResult === 'string') {
+      try {
+        analysisResult = JSON.parse(analysisResult);
+      } catch (e) {
+        console.error('Failed to parse analysisResult JSON string:', e);
+      }
+    }
+
+    console.log('analysisResult type at server:', typeof analysisResult);
     
     const insights = await generateInsights(analysisResult);
     
@@ -125,8 +137,6 @@ app.post('/api/upload', async (req, res) => {
       `,
       [uploadId, JSON.stringify(analysisResult), insights]
     );
-
-    
 
     return res.status(201).json({
       message: 'File uploaded and analyzed successfully',
