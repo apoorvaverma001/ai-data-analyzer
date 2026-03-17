@@ -73,6 +73,34 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// GET /api/history - list uploads with (optional) analysis insights
+app.get('/api/history', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+        SELECT
+          u.id,
+          u.original_name,
+          u.file_size,
+          u.uploaded_at,
+          a.insights_text
+        FROM uploads u
+        LEFT JOIN analyses a
+          ON a.upload_id = u.id
+        ORDER BY u.uploaded_at DESC
+      `
+    );
+
+    return res.json(result.rows);
+  } catch (err) {
+    console.error('History handler failed:', err);
+    return res.status(500).json({
+      error: 'Failed to fetch history',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    });
+  }
+});
+
 // POST /api/upload endpoint
 app.post('/api/upload', async (req, res) => {
   try {
