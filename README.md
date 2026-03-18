@@ -4,7 +4,9 @@ AI-powered CSV analyzer that lets you upload a dataset, generates a quick statis
 
 > Upload any CSV → get instant statistical analysis + AI-generated business insights
 
-**Live demo:** [your-url-here] ← add this after deployment
+**Live demo:** 
+
+
 **Built with:** React • Node.js • Python/Flask • PostgreSQL • Groq AI
 
 ---
