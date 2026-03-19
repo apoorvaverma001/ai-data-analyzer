@@ -135,7 +135,7 @@ app.post('/api/upload', async (req, res) => {
     const form = new FormData();
     form.append('file', fs.createReadStream(req.file.path), req.file.filename);
 
-    const pythonResponse = await axios.post('http://localhost:7001/analyze', form, {
+    const pythonResponse = await axios.post(`${process.env.PYTHON_SERVICE_URL}/analyze`, form, {
       headers: form.getHeaders(),
       timeout: 30000, 
     });
