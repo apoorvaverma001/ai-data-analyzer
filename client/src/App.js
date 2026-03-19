@@ -198,7 +198,7 @@ function HistoryView() {
       try {
         setLoading(true);
         setError('');
-        const resp = await axios.get('http://localhost:8000/api/history');
+        const resp = await axios.get(`${process.env.REACT_APP_API_URL}/api/history`);
         if (!cancelled) setHistory(Array.isArray(resp.data) ? resp.data : []);
       } catch (err) {
         const msg =
@@ -294,7 +294,7 @@ function App() {
 
     try {
       setLoading(true);
-      const resp = await axios.post('http://localhost:8000/api/upload', formData, {
+      const resp = await axios.post(`${process.env.REACT_APP_API_URL}/api/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setResult(resp.data);
