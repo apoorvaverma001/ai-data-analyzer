@@ -1,5 +1,8 @@
 .App {
-  text-align: center;
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+  font-family: sans-serif;
 }
 
 .App-logo {
@@ -14,7 +17,7 @@
 }
 
 .App-header {
-  background-color: #282c34;
+  background-color: #1557db;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -35,4 +38,64 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.App-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #8d54f7;
+  text-align: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #eee;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.tab-btn {
+  padding: 10px 24px;
+  border-radius: 999px;
+  border: 1.5px solid #ddd;
+  background: #e79c8b;
+  color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all o.2s ease;
+}
+
+.tab-btn:hover {
+  transform: translateY(-1px);
+  border-color: #111;
+  background: #e57f69;
+}
+
+.tab-btn.active {
+  background: #e57f69;
+  color: #fff;
+  border-color: #111;
+}
+
+.submit-btn {
+  padding: 10px 24px;
+  background: #a287f3;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #8d54f7;
+  transform: scale(1.02);
+}
+
+.submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

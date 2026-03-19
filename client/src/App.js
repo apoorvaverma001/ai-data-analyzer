@@ -312,32 +312,21 @@ function App() {
 
   return (
     <div className="App" style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
-      <h2>AI Data Analyzer</h2>
+     
+      <h1 className="App-title">AI Data Analyzer</h1>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div className="nav-tabs">
         <button
           type="button"
           onClick={() => setView('analyze')}
-          style={{
-            padding: '8px 12px',
-            borderRadius: 10,
-            border: '1px solid #ddd',
-            background: view === 'analyze' ? '#111' : '#fff',
-            color: view === 'analyze' ? '#fff' : '#111',
-          }}
+          className={`tab-btn ${view === 'analyze' ? 'active' : ''}`}
         >
           Analyze
         </button>
         <button
           type="button"
           onClick={() => setView('history')}
-          style={{
-            padding: '8px 12px',
-            borderRadius: 10,
-            border: '1px solid #ddd',
-            background: view === 'history' ? '#111' : '#fff',
-            color: view === 'history' ? '#fff' : '#111',
-          }}
+          className={`tab-btn ${view === 'history' ? 'active' : ''}`}
         >
           History
         </button>
@@ -346,13 +335,27 @@ function App() {
       {view === 'analyze' ? (
         <>
           <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+             <label style={{
+                border: '2px dashed #ccc',
+                borderRadius: 8,
+                padding: '10px 16px',
+                cursor: 'pointer',
+                flex: 1,
+                color: '#666',
+                fontSize: 14,
+                transition: 'border-color 0.2s ease'
+              }}>
+                {file ? file.name : 'Choose a CSV file...'}
             <input
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               disabled={loading}
+              style={{ display: 'none' }}
             />
-            <button type="submit" disabled={loading || !file}>
+            </label>
+            
+            <button type="submit" disabled={loading || !file} className="submit-btn">
               {loading ? 'Uploading…' : 'Upload & Analyze'}
             </button>
           </form>
