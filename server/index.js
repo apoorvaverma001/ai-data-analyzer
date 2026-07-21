@@ -22,7 +22,11 @@ initDB().catch((err) => {
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['https://ai-data-analyzer-ivory.vercel.app', 'http://localhost:3000'],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Ensure uploads directory exists
@@ -137,7 +141,7 @@ app.post('/api/upload', async (req, res) => {
 
     const pythonResponse = await axios.post(`${process.env.PYTHON_SERVICE_URL}/analyze`, form, {
       headers: form.getHeaders(),
-      timeout: 30000, 
+      timeout: 30000,
     });
 
     let analysisResult = pythonResponse.data;
@@ -153,9 +157,9 @@ app.post('/api/upload', async (req, res) => {
     }
 
     console.log('analysisResult type at server:', typeof analysisResult);
-    
+
     const insights = await generateInsights(analysisResult);
-    
+
 
     // Persist analysis result in the analyses table
     await pool.query(
@@ -201,7 +205,7 @@ app.post('/api/upload', async (req, res) => {
       details: process.env.NODE_ENV === 'development' ? err.message : undefined,
     });
   }
-  
+
 });
 
 // Global error handler
