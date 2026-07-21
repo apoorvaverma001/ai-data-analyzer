@@ -2,6 +2,7 @@ import './App.css';
 import { useEffect, useState } from 'react';
 import { Bar } from 'react-chartjs-2';
 import axios from 'axios';
+import PurpleGridBackground from './PurpleGridBackground';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -14,38 +15,28 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: true,
-  plugins: {
-    legend: { display: false },
-    title: { display: true, text: 'Top categories' },
-  },
-  scales: {
-    y: { beginAtZero: true },
-  },
-};
-
 function ErrorBox({ message, onDismiss }) {
   if (!message) return null;
   return (
     <div
       style={{
         marginTop: 16,
-        background: '#ffebee',
-        border: '1px solid #ffcdd2',
-        color: '#b00020',
+        background: 'rgba(239, 68, 68, 0.15)',
+        border: '1px solid rgba(239, 68, 68, 0.4)',
+        color: '#fca5a5',
         padding: 12,
         borderRadius: 12,
         display: 'flex',
         justifyContent: 'space-between',
         gap: 12,
-        alignItems: 'flex-start',
+        alignItems: 'center',
+        width: '100%',
+        boxSizing: 'border-box'
       }}
     >
-      <div style={{ lineHeight: 1.4 }}>
-        <strong style={{ display: 'block', marginBottom: 4 }}>Error</strong>
-        <div>{message}</div>
+      <div style={{ lineHeight: 1.4, textAlign: 'left' }}>
+        <strong style={{ display: 'block', marginBottom: 2 }}>Error</strong>
+        <div>{message.replace(/\*/g, '')}</div>
       </div>
       <button
         type="button"
@@ -54,8 +45,8 @@ function ErrorBox({ message, onDismiss }) {
         style={{
           border: 'none',
           background: 'transparent',
-          color: '#b00020',
-          fontSize: 18,
+          color: '#fca5a5',
+          fontSize: 20,
           lineHeight: 1,
           cursor: 'pointer',
           padding: 4,
@@ -95,46 +86,125 @@ function ResultsView({ result }) {
   const analysis = result.analysisResult || result;
   const rowCount = analysis.row_count ?? 0;
   const columnNames = Array.isArray(analysis.column_names) ? analysis.column_names : [];
+  const columnCount = analysis.column_count ?? columnNames.length;
+  
   const topCategories = analysis.top_categories && typeof analysis.top_categories === 'object'
     ? analysis.top_categories
     : {};
   const missingValues = analysis.missing_values && typeof analysis.missing_values === 'object'
     ? analysis.missing_values
     : {};
-  const insightsText = result.insights || '';
+  
+  // Strip all asterisks from Groq AI insights text
+  const rawInsights = result.insights || '';
+  const cleanInsights = rawInsights.replace(/\*/g, '');
 
-  const chartData = {
-    labels: Object.keys(topCategories),
+  // Chart 1: Rows vs Columns Data Chart
+  const dimensionsChartData = {
+    labels: ['Rows', 'Columns'],
     datasets: [
       {
         label: 'Count',
-        data: Object.values(topCategories),
-        backgroundColor: 'rgba(54, 162, 235, 0.6)',
-        borderColor: 'rgb(54, 162, 235)',
-        borderWidth: 1,
+        data: [rowCount, columnCount],
+        backgroundColor: ['rgba(168, 85, 247, 0.75)', 'rgba(236, 72, 153, 0.75)'],
+        borderColor: ['rgb(192, 132, 252)', 'rgb(244, 114, 182)'],
+        borderWidth: 1.5,
+        borderRadius: 8,
       },
     ],
+  };
+
+  const dimensionsChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      title: { display: true, text: 'Dataset Dimensions (Rows & Columns)', color: '#e9d5ff', font: { size: 14, weight: '600' } },
+    },
+    scales: {
+      x: {
+        ticks: { color: '#c084fc' },
+        grid: { color: 'rgba(168, 85, 247, 0.15)' }
+      },
+      y: {
+        beginAtZero: true,
+        ticks: { color: '#c084fc' },
+        grid: { color: 'rgba(168, 85, 247, 0.15)' }
+      },
+    },
+  };
+
+  // Chart 2: Top Values Visualization Chart
+  const topValuesChartData = {
+    labels: Object.keys(topCategories),
+    datasets: [
+      {
+        label: 'Frequency',
+        data: Object.values(topCategories),
+        backgroundColor: [
+          'rgba(147, 51, 234, 0.75)',
+          'rgba(168, 85, 247, 0.75)',
+          'rgba(192, 132, 252, 0.75)',
+          'rgba(216, 180, 254, 0.75)',
+          'rgba(236, 72, 153, 0.75)',
+        ],
+        borderColor: 'rgb(192, 132, 252)',
+        borderWidth: 1.5,
+        borderRadius: 8,
+      },
+    ],
+  };
+
+  const topValuesChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      title: { display: true, text: 'Top Category Values Visualization', color: '#e9d5ff', font: { size: 14, weight: '600' } },
+    },
+    scales: {
+      x: {
+        ticks: { color: '#c084fc' },
+        grid: { color: 'rgba(168, 85, 247, 0.15)' }
+      },
+      y: {
+        beginAtZero: true,
+        ticks: { color: '#c084fc' },
+        grid: { color: 'rgba(168, 85, 247, 0.15)' }
+      },
+    },
   };
 
   const columnsWithMissing = Object.entries(missingValues).filter(([, count]) => Number(count) > 0);
 
   return (
-    <div style={{ marginTop: 24, textAlign: 'left' }}>
-      <section style={{ marginBottom: 24 }}>
-        <h3 style={{ marginBottom: 8 }}>Summary</h3>
-        <p style={{ marginBottom: 12 }}>
-          <strong>Rows:</strong> <span style={{ padding: '4px 10px', background: '#e3f2fd', borderRadius: 16 }}>{rowCount}</span>
-        </p>
-        <p style={{ marginBottom: 4 }}><strong>Columns:</strong></p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+    <div className="content-section">
+      {/* Dataset Summary Cards (Rows & Columns) */}
+      <section style={{ marginBottom: 24, width: '100%' }}>
+        <h3 style={{ marginBottom: 16, color: '#e9d5ff', textAlign: 'center' }}>Dataset Summary</h3>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+          <div style={{ padding: '12px 28px', background: 'rgba(168, 85, 247, 0.2)', border: '1px solid rgba(192, 132, 252, 0.4)', borderRadius: 16, color: '#f3e8ff', textAlign: 'center' }}>
+            <span style={{ fontSize: 13, color: '#a78bfa', display: 'block', marginBottom: 2 }}>Number of Rows</span>
+            <strong style={{ fontSize: 22, color: '#fff' }}>{rowCount.toLocaleString()}</strong>
+          </div>
+          <div style={{ padding: '12px 28px', background: 'rgba(236, 72, 153, 0.2)', border: '1px solid rgba(244, 114, 182, 0.4)', borderRadius: 16, color: '#f3e8ff', textAlign: 'center' }}>
+            <span style={{ fontSize: 13, color: '#f472b6', display: 'block', marginBottom: 2 }}>Number of Columns</span>
+            <strong style={{ fontSize: 22, color: '#fff' }}>{columnCount.toLocaleString()}</strong>
+          </div>
+        </div>
+
+        <p style={{ marginBottom: 10, textAlign: 'center' }}><strong>Columns List:</strong></p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
           {columnNames.map((name) => (
             <span
               key={name}
               style={{
-                padding: '4px 12px',
-                background: '#e8eaf6',
+                padding: '5px 14px',
+                background: 'rgba(147, 51, 234, 0.2)',
+                border: '1px solid rgba(168, 85, 247, 0.3)',
                 borderRadius: 16,
                 fontSize: 14,
+                color: '#d8b4fe'
               }}
             >
               {name}
@@ -143,42 +213,61 @@ function ResultsView({ result }) {
         </div>
       </section>
 
-      {Object.keys(topCategories).length > 0 ? (
-        <section style={{ marginBottom: 24, maxWidth: 500 }}>
-          <div style={{ height: 280 }}>
-            <Bar data={chartData} options={chartOptions} />
+      {/* Visualizations: Chart 1 (Rows & Columns) + Chart 2 (Top Values) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, width: '100%', marginBottom: 32 }}>
+        {/* Chart 1: Rows vs Columns */}
+        <div style={{ background: 'rgba(30, 20, 60, 0.5)', padding: 18, borderRadius: 16, border: '1px solid rgba(168, 85, 247, 0.25)' }}>
+          <div style={{ height: 260 }}>
+            <Bar data={dimensionsChartData} options={dimensionsChartOptions} />
           </div>
-        </section>
-      ) : null}
+        </div>
 
-      {insightsText.trim() ? (
-        <section style={{ marginBottom: 24 }}>
-          <h3 style={{ marginBottom: 8 }}>AI insights</h3>
-          <ul style={{ margin: 0, paddingLeft: 20 }}>
-            {insightsText
+        {/* Chart 2: Top Values Visualization */}
+        <div style={{ background: 'rgba(30, 20, 60, 0.5)', padding: 18, borderRadius: 16, border: '1px solid rgba(168, 85, 247, 0.25)' }}>
+          {Object.keys(topCategories).length > 0 ? (
+            <div style={{ height: 260 }}>
+              <Bar data={topValuesChartData} options={topValuesChartOptions} />
+            </div>
+          ) : (
+            <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a78bfa', fontSize: 14, textAlign: 'center', padding: 16 }}>
+              No non-numeric category values found for top value chart.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* AI Insights Section (Cleaned text without asterisks) */}
+      {cleanInsights.trim() ? (
+        <section style={{ marginBottom: 24, width: '100%', textAlign: 'center' }}>
+          <h3 style={{ marginBottom: 14, color: '#e9d5ff' }}>AI Insights (Groq API)</h3>
+          <ul style={{ margin: '0 auto', padding: 0, listStyle: 'none', maxWidth: 650, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {cleanInsights
               .split(/\r?\n/)
-              .map((line) => line.trim())
+              .map((line) => line.replace(/\*/g, '').trim())
               .filter(Boolean)
               .map((line, i) => (
-                <li key={i} style={{ marginBottom: 4 }}>{line}</li>
+                <li key={i} style={{ padding: '12px 18px', background: 'rgba(147, 51, 234, 0.15)', border: '1px solid rgba(168, 85, 247, 0.25)', borderRadius: 12, textAlign: 'left', color: '#f3e8ff', fontSize: 14, lineHeight: 1.5 }}>
+                  {line}
+                </li>
               ))}
           </ul>
         </section>
       ) : null}
 
+      {/* Missing Values Section */}
       {Object.keys(missingValues).length > 0 ? (
-        <section style={{ marginBottom: 24 }}>
-          <h3 style={{ marginBottom: 8 }}>Missing values</h3>
+        <section style={{ marginBottom: 24, width: '100%', textAlign: 'center' }}>
+          <h3 style={{ marginBottom: 12, color: '#e9d5ff' }}>Missing Values</h3>
           {columnsWithMissing.length > 0 ? (
-            <ul style={{ margin: 0, paddingLeft: 20 }}>
+            <ul style={{ margin: '0 auto', padding: 0, listStyle: 'none', maxWidth: 500, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
               {columnsWithMissing.map(([col, count]) => (
-                <li key={col}>
+                <li key={col} style={{ padding: '6px 14px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 12, color: '#fca5a5', fontSize: 14 }}>
                   <strong>{col}</strong>: {count} missing
                 </li>
               ))}
             </ul>
           ) : (
-            <p style={{ color: '#2e7d32', margin: 0 }}>No missing values in any column.</p>
+            <p style={{ color: '#4ade80', margin: 0 }}>No missing values in any column.</p>
           )}
         </section>
       ) : null}
@@ -219,7 +308,7 @@ function HistoryView() {
     };
   }, []);
 
-  if (loading) return <div style={{ marginTop: 16 }}>Loading history…</div>;
+  if (loading) return <div style={{ marginTop: 24, color: '#c084fc', textAlign: 'center' }}>Loading history…</div>;
 
   if (error) {
     return (
@@ -228,33 +317,28 @@ function HistoryView() {
   }
 
   return (
-    <div style={{ marginTop: 20, textAlign: 'left' }}>
+    <div className="content-section">
       {history.length === 0 ? (
-        <div>No uploads yet.</div>
+        <div style={{ color: '#a78bfa', padding: 20 }}>No uploads yet.</div>
       ) : (
-        <div style={{ display: 'grid', gap: 12 }}>
-          {history.map((item) => (
-            <div
-              key={item.id}
-              style={{
-                border: '1px solid #ddd',
-                borderRadius: 12,
-                padding: 14,
-                background: '#fff',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                <div style={{ fontWeight: 700 }}>{item.original_name || '(no name)'}</div>
-                <div style={{ color: '#555' }}>{formatKB(item.file_size)}</div>
+        <div style={{ display: 'grid', gap: 14, width: '100%', maxWidth: 650, margin: '0 auto' }}>
+          {history.map((item) => {
+            const cleanHistoryInsights = (item.insights_text || '').replace(/\*/g, '');
+            return (
+              <div key={item.id} className="history-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                  <div style={{ fontWeight: 700, color: '#e9d5ff', fontSize: 16 }}>{item.original_name || '(no name)'}</div>
+                  <div style={{ color: '#c084fc', fontSize: 14 }}>{formatKB(item.file_size)}</div>
+                </div>
+                <div style={{ marginTop: 4, color: '#a78bfa', fontSize: 13 }}>
+                  {formatDate(item.uploaded_at)}
+                </div>
+                <div style={{ marginTop: 10, whiteSpace: 'pre-wrap', color: '#f3e8ff', fontSize: 14, lineHeight: 1.5 }}>
+                  {truncate(cleanHistoryInsights, 200) || '(no insights yet)'}
+                </div>
               </div>
-              <div style={{ marginTop: 6, color: '#666', fontSize: 14 }}>
-                {formatDate(item.uploaded_at)}
-              </div>
-              <div style={{ marginTop: 10, whiteSpace: 'pre-wrap', color: '#222' }}>
-                {truncate(item.insights_text || '', 200) || '(no insights yet)'}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -311,63 +395,60 @@ function App() {
   };
 
   return (
-    <div className="App" style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
-     
-      <h1 className="App-title">AI Data Analyzer</h1>
+    <>
+      <PurpleGridBackground />
+      <div className="App-page">
+        <main className="main-card">
+          <h1 className="App-title">AI Data Analyzer</h1>
+          <p className="App-subtitle">Upload CSV datasets to explore AI insights & visualizations</p>
 
-      <div className="nav-tabs">
-        <button
-          type="button"
-          onClick={() => setView('analyze')}
-          className={`tab-btn ${view === 'analyze' ? 'active' : ''}`}
-        >
-          Analyze
-        </button>
-        <button
-          type="button"
-          onClick={() => setView('history')}
-          className={`tab-btn ${view === 'history' ? 'active' : ''}`}
-        >
-          History
-        </button>
-      </div>
-
-      {view === 'analyze' ? (
-        <>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-             <label style={{
-                border: '2px dashed #ccc',
-                borderRadius: 8,
-                padding: '10px 16px',
-                cursor: 'pointer',
-                flex: 1,
-                color: '#666',
-                fontSize: 14,
-                transition: 'border-color 0.2s ease'
-              }}>
-                {file ? file.name : 'Choose a CSV file...'}
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              disabled={loading}
-              style={{ display: 'none' }}
-            />
-            </label>
-            
-            <button type="submit" disabled={loading || !file} className="submit-btn">
-              {loading ? 'Uploading…' : 'Upload & Analyze'}
+          <div className="nav-tabs">
+            <button
+              type="button"
+              onClick={() => setView('analyze')}
+              className={`tab-btn ${view === 'analyze' ? 'active' : ''}`}
+            >
+              Analyze
             </button>
-          </form>
+            <button
+              type="button"
+              onClick={() => setView('history')}
+              className={`tab-btn ${view === 'history' ? 'active' : ''}`}
+            >
+              History
+            </button>
+          </div>
 
-          <ErrorBox message={error} onDismiss={() => setError('')} />
+          {view === 'analyze' ? (
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <form onSubmit={handleSubmit} className="upload-form">
+                <label className="file-label">
+                  <span style={{ fontSize: 24 }}>📁</span>
+                  <span>{file ? file.name : 'Choose or drag a CSV file...'}</span>
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    disabled={loading}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                
+                <button type="submit" disabled={loading || !file} className="submit-btn">
+                  {loading ? 'Uploading…' : 'Upload & Analyze'}
+                </button>
+              </form>
 
-          {result ? <ResultsView result={result} /> : null}
-        </>
-      ) : (
-        <HistoryView />
-      )}
-    </div>
+              <ErrorBox message={error} onDismiss={() => setError('')} />
+
+              {result ? <ResultsView result={result} /> : null}
+            </div>
+          ) : (
+            <HistoryView />
+          )}
+        </main>
+      </div>
+    </>
   );
 }
 

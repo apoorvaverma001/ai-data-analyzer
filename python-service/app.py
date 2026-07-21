@@ -77,6 +77,7 @@ def create_app() -> Flask:
 
             response = {
                 "row_count": int(len(df)),
+                "column_count": int(len(df.columns)),
                 "column_names": [str(c) for c in df.columns.tolist()],
                 "numeric_summary": _safe_numeric_summary(df),
                 "top_categories": _top_categories_first_non_numeric(df, top_n=5),
