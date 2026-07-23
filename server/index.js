@@ -23,7 +23,28 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['https://ai-data-analyzer-ivory.vercel.app', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    // Allow server-to-server or postman requests (no origin)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      'https://ai-data-analyzer-ivory.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3001'
+    ];
+
+    // Allow explicitly defined origins or any Vercel preview/production domains
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:')
+    ) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 
