@@ -15,7 +15,7 @@ const PurpleGridBackground = () => {
 
     // Mouse trail coordinates
     let trail = [];
-    const maxTrailLength = 35;
+    // const maxTrailLength = 35;
 
     let mouse = {
       x: width / 2,
@@ -59,24 +59,24 @@ const PurpleGridBackground = () => {
       mouse.x += (mouse.targetX - mouse.x) * 0.3;
       mouse.y += (mouse.targetY - mouse.y) * 0.3;
 
-      if (mouse.active) {
-        trail.push({
-          x: mouse.x,
-          y: mouse.y,
-          age: 0,
-          maxAge: 30
-        });
-      }
+      // if (mouse.active) {
+      //   trail.push({
+      //     x: mouse.x,
+      //     y: mouse.y,
+      //     age: 0,
+      //     maxAge: 30
+      //   });
+      // }
 
-      if (trail.length > maxTrailLength) {
-        trail.shift();
-      }
+      // if (trail.length > maxTrailLength) {
+      //   trail.shift();
+      // }
 
       // Update ages
-      for (let i = 0; i < trail.length; i++) {
-        trail[i].age++;
-      }
-      trail = trail.filter((t) => t.age < t.maxAge);
+      // for (let i = 0; i < trail.length; i++) {
+      //   trail[i].age++;
+      // }
+      // trail = trail.filter((t) => t.age < t.maxAge);
 
       // Deep dark purple background
       ctx.fillStyle = '#080512';
@@ -85,7 +85,7 @@ const PurpleGridBackground = () => {
       // 1. Base Grid
       ctx.lineWidth = 1;
       ctx.strokeStyle = 'rgba(147, 51, 234, 0.12)';
-      
+
       ctx.beginPath();
       for (let x = 0; x <= width; x += gridSize) {
         ctx.moveTo(x, 0);
@@ -134,25 +134,25 @@ const PurpleGridBackground = () => {
         }
 
         // 3. Smooth Glowing Purple Line Trail
-        ctx.beginPath();
-        for (let i = 0; i < trail.length; i++) {
-          const pt = trail[i];
-          if (i === 0) {
-            ctx.moveTo(pt.x, pt.y);
-          } else {
-            const prev = trail[i - 1];
-            const xc = (pt.x + prev.x) / 2;
-            const yc = (pt.y + prev.y) / 2;
-            ctx.quadraticCurveTo(prev.x, prev.y, xc, yc);
-          }
-        }
+        // ctx.beginPath();
+        // for (let i = 0; i < trail.length; i++) {
+        //   const pt = trail[i];
+        //   if (i === 0) {
+        //     ctx.moveTo(pt.x, pt.y);
+        //   } else {
+        //     const prev = trail[i - 1];
+        //     const xc = (pt.x + prev.x) / 2;
+        //     const yc = (pt.y + prev.y) / 2;
+        //     ctx.quadraticCurveTo(prev.x, prev.y, xc, yc);
+        //   }
+        // }
 
-        ctx.strokeStyle = 'rgba(192, 132, 252, 0.85)';
-        ctx.lineWidth = 3.5;
-        ctx.shadowColor = '#a855f7';
-        ctx.shadowBlur = 12;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+        // ctx.strokeStyle = 'rgba(192, 132, 252, 0.85)';
+        // ctx.lineWidth = 3.5;
+        // ctx.shadowColor = '#a855f7';
+        // ctx.shadowBlur = 12;
+        // ctx.stroke();
+        // ctx.shadowBlur = 0;
 
         // 4. Glowing Head & Trail Particle Aura
         for (let i = 0; i < trail.length; i++) {
@@ -166,7 +166,7 @@ const PurpleGridBackground = () => {
           gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
 
           ctx.fillStyle = gradient;
-          ctx.beginPath();
+          // ctx.beginPath();
           ctx.arc(pt.x, pt.y, r * 3.5, 0, Math.PI * 2);
           ctx.fill();
         }
