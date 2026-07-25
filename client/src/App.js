@@ -376,22 +376,50 @@ function App() {
     const formData = new FormData();
     formData.append('file', file);
 
-    try {
-      setLoading(true);
-      const resp = await axios.post(`${process.env.REACT_APP_API_URL}/api/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setResult(resp.data);
-    } catch (err) {
-      const message =
-        err?.response?.data?.error ||
-        err?.response?.data?.details ||
-        err?.message ||
-        'Upload failed.';
-      setError(typeof message === 'string' ? message : JSON.stringify(message));
-    } finally {
-      setLoading(false);
+    setLoading(true);
+
+    let attempts = 0;
+    const maxAttempts = 3;
+    let success = false;
+    let lastError = null;
+
+    while (attempts < maxAttempts && !success) {
+      try {
+        attempts++;
+        const resp = await axios.post(`${process.env.REACT_APP_API_URL}/api/upload`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        setResult(resp.data);
+        success = true;
+        setError(''); // Clear any waking up status message
+      } catch (err) {
+        lastError = err;
+        const isNetworkErrorOrTimeout = !err.response || err.code === 'ECONNABORTED' || err.message === 'Network Error';
+
+        if (isNetworkErrorOrTimeout && attempts < maxAttempts) {
+          setError('Server is waking up...');
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        } else {
+          break; // Don't retry for structured errors (4xx/5xx) or after exhausing max attempts
+        }
+      }
     }
+
+    if (!success) {
+      const isNetworkErrorOrTimeout = !lastError?.response || lastError?.code === 'ECONNABORTED' || lastError?.message === 'Network Error';
+      if (isNetworkErrorOrTimeout) {
+        setError('Server is taking too long to start. Please try again in a minute.');
+      } else {
+        const message =
+          lastError?.response?.data?.error ||
+          lastError?.response?.data?.details ||
+          lastError?.message ||
+          'Upload failed.';
+        setError(typeof message === 'string' ? message : JSON.stringify(message));
+      }
+    }
+
+    setLoading(false);
   };
 
   return (
