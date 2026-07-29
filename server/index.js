@@ -93,8 +93,25 @@ const upload = multer({
   },
 }).single('file'); // Expect field name "file"
 
+// Function to wake up python service in the background
+function pingPythonServiceInBackground() {
+  if (process.env.PYTHON_SERVICE_URL) {
+    axios.get(`${process.env.PYTHON_SERVICE_URL}/health`)
+      .catch((err) => {
+        console.log('Background Python service ping failed or timed out:', err.message);
+      });
+  }
+}
+
+// Root check route
+app.get('/', (req, res) => {
+  pingPythonServiceInBackground();
+  res.json({ status: 'ok', message: 'Server is awake and running.' });
+});
+
 // Health check route
 app.get('/health', (req, res) => {
+  pingPythonServiceInBackground();
   res.json({ status: 'ok' });
 });
 

@@ -279,25 +279,64 @@ function HistoryView() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
     let cancelled = false;
 
     const fetchHistory = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        const resp = await axios.get(`${process.env.REACT_APP_API_URL}/api/history`);
-        if (!cancelled) setHistory(Array.isArray(resp.data) ? resp.data : []);
-      } catch (err) {
-        const msg =
-          err?.response?.data?.error ||
-          err?.response?.data?.details ||
-          err?.message ||
-          'Failed to load history.';
-        if (!cancelled) setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
-      } finally {
-        if (!cancelled) setLoading(false);
+      setLoading(true);
+      setError('');
+      setStatusMessage('');
+
+      let attempts = 0;
+      const maxAttempts = 5;
+      let success = false;
+      let lastError = null;
+
+      while (attempts < maxAttempts && !success && !cancelled) {
+        try {
+          attempts++;
+          const resp = await axios.get(`${process.env.REACT_APP_API_URL}/api/history`, { timeout: 12000 });
+          if (!cancelled) {
+            setHistory(Array.isArray(resp.data) ? resp.data : []);
+            success = true;
+            setStatusMessage('');
+          }
+        } catch (err) {
+          lastError = err;
+          const status = err.response?.status;
+          const isRetryable = !err.response || 
+                              err.code === 'ECONNABORTED' || 
+                              err.message === 'Network Error' || 
+                              status === 502 || 
+                              status === 503 || 
+                              status === 504;
+
+          if (isRetryable && attempts < maxAttempts) {
+            if (!cancelled) setStatusMessage(`Server is waking up... (Attempt ${attempts}/${maxAttempts})`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          } else {
+            break;
+          }
+        }
+      }
+
+      if (!cancelled) {
+        setLoading(false);
+        if (!success) {
+          const isNetworkErrorOrTimeout = !lastError?.response || lastError?.code === 'ECONNABORTED' || lastError?.message === 'Network Error';
+          if (isNetworkErrorOrTimeout) {
+            setError('Server is taking too long to start. Please try again in a minute.');
+          } else {
+            const msg =
+              lastError?.response?.data?.error ||
+              lastError?.response?.data?.details ||
+              lastError?.message ||
+              'Failed to load history.';
+            setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+          }
+        }
       }
     };
 
@@ -308,7 +347,21 @@ function HistoryView() {
     };
   }, []);
 
-  if (loading) return <div style={{ marginTop: 24, color: '#c084fc', textAlign: 'center' }}>Loading history…</div>;
+  if (loading) {
+    return (
+      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        <div style={{ color: '#c084fc', textAlign: 'center' }}>
+          {statusMessage || 'Loading history…'}
+        </div>
+        {statusMessage && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="spinner-dot"></span>
+            <span style={{ fontSize: 13, color: '#a78bfa' }}>Please wait, container is spinning up</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -351,6 +404,49 @@ function App() {
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const [view, setView] = useState('analyze'); // 'analyze' | 'history'
+  const [serverStatus, setServerStatus] = useState('unknown'); // 'unknown' | 'waking' | 'online' | 'error'
+
+  // Pre-emptive background server wakeup call
+  useEffect(() => {
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    const wakeUpServer = async () => {
+      while (attempts < maxAttempts && !cancelled) {
+        try {
+          attempts++;
+          await axios.get(`${process.env.REACT_APP_API_URL}/health`, { timeout: 12000 });
+          if (!cancelled) {
+            setServerStatus('online');
+            break;
+          }
+        } catch (err) {
+          const status = err.response?.status;
+          const isRetryable = !err.response || 
+                              err.code === 'ECONNABORTED' || 
+                              err.message === 'Network Error' || 
+                              status === 502 || 
+                              status === 503 || 
+                              status === 504;
+
+          if (isRetryable && attempts < maxAttempts) {
+            if (!cancelled) setServerStatus('waking');
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          } else {
+            if (!cancelled) setServerStatus('error');
+            break;
+          }
+        }
+      }
+    };
+
+    wakeUpServer();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -392,22 +488,34 @@ function App() {
         setResult(resp.data);
         success = true;
         setError(''); // Clear any waking up status message
+        setServerStatus('online');
       } catch (err) {
         lastError = err;
-        const isNetworkErrorOrTimeout = !err.response || err.code === 'ECONNABORTED' || err.message === 'Network Error';
+        const status = err.response?.status;
+        const isNetworkErrorOrTimeoutOrSleep = 
+          !err.response || 
+          err.code === 'ECONNABORTED' || 
+          err.message === 'Network Error' ||
+          status === 502 || 
+          status === 503 || 
+          status === 504;
 
-        if (isNetworkErrorOrTimeout && attempts < maxAttempts) {
-          setError('Server is waking up...');
+        if (isNetworkErrorOrTimeoutOrSleep && attempts < maxAttempts) {
+          setError(`Server is waking up... (Attempt ${attempts}/${maxAttempts})`);
+          setServerStatus('waking');
           await new Promise(resolve => setTimeout(resolve, 5000));
         } else {
-          break; // Don't retry for structured errors (4xx/5xx) or after exhausing max attempts
+          break; // Don't retry for structured errors (4xx/5xx) or after exhausting max attempts
         }
       }
     }
 
     if (!success) {
       const isNetworkErrorOrTimeout = !lastError?.response || lastError?.code === 'ECONNABORTED' || lastError?.message === 'Network Error';
-      if (isNetworkErrorOrTimeout) {
+      const status = lastError?.response?.status;
+      const isSleepStatus = status === 502 || status === 503 || status === 504;
+
+      if (isNetworkErrorOrTimeout || isSleepStatus) {
         setError('Server is taking too long to start. Please try again in a minute.');
       } else {
         const message =
@@ -429,6 +537,27 @@ function App() {
         <main className="main-card">
           <h1 className="App-title">AI Data Analyzer</h1>
           <p className="App-subtitle">Upload CSV datasets to explore AI insights & visualizations</p>
+
+          {serverStatus === 'waking' && (
+            <div style={{
+              margin: '0 auto 16px auto',
+              background: 'rgba(168, 85, 247, 0.15)',
+              border: '1px solid rgba(168, 85, 247, 0.4)',
+              color: '#d8b4fe',
+              padding: '8px 16px',
+              borderRadius: 12,
+              fontSize: 13,
+              maxWidth: 350,
+              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8
+            }}>
+              <span className="spinner-dot"></span>
+              Server is waking up. Please wait...
+            </div>
+          )}
 
           <div className="nav-tabs">
             <button
